@@ -2,52 +2,68 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using CommandLine;
 using Xnlab.SharpDups.Logic;
 using Xnlab.SharpDups.Model;
 
 namespace Xnlab.SharpDups.Runner
 {
+    public enum RunnerMode
+    {
+        Find,
+        Compare,
+        Test
+    }
+
+    public class Options
+    {
+        [Option('d', "directory", Required = true, HelpText = "The directory to scan.")]
+        public string Path { get; set; }
+
+        [Option('m', "mode", HelpText = "The mode to use (Find, Compare, Test).", Default = RunnerMode.Test)]
+        public RunnerMode Mode { get; set; }
+
+        [Option('e', "export", HelpText = "Export found duplicates paths to this text file.")]
+        public string ExportFile { get; set; }
+
+        [Option('r', "remove", HelpText = "If set, duplicates will be deleted from disk.")]
+        public bool Remove { get; set; }
+    }
+
     internal class Program
     {
         private static void Main(string[] args)
         {
             AppDomain.MonitoringIsEnabled = true;
-            var input = string.Empty;
-            var exitCommand = "q";
-            while (!input.Equals(exitCommand, StringComparison.OrdinalIgnoreCase))
-            {
-                Console.WriteLine("Please specify the folder to find dup files:");
-                var folder = Console.ReadLine();
-                if (Directory.Exists(folder))
+
+            Parser.Default.ParseArguments<Options>(args)
+                .WithParsed(o =>
                 {
+                    if (!Directory.Exists(o.Path))
+                    {
+                        Console.WriteLine("Please make sure folder {0} exist", o.Path);
+                        return;
+                    }
+
+                    var folder = o.Path;
                     var workers = 10;
-
-                    Console.WriteLine("Please choose from the following options(press the number):");
-                    Console.WriteLine("1. Find");
-                    Console.WriteLine("2. Compare");
-                    Console.WriteLine("3. Performance Testing");
-                    Console.WriteLine("Q. Quit");
-
-                    var choice = Console.ReadKey();
-                    Console.WriteLine();
-                    Console.WriteLine("Started.");
-
                     var startTime = AppDomain.CurrentDomain.MonitoringTotalProcessorTime;
                     var allocated = AppDomain.CurrentDomain.MonitoringTotalAllocatedMemorySize;
-                    switch (choice.Key)
+
+                    Console.WriteLine("Invoked in {0} mode", o.Mode);
+                    Console.WriteLine("Running...");
+
+                    switch (o.Mode)
                     {
-                        case ConsoleKey.D1:
+                        case RunnerMode.Find:
                             var detector = new ProgressiveDupDetector();
                             Run(detector, workers, folder);
                             break;
-                        case ConsoleKey.D2:
+                        case RunnerMode.Compare:
                             RunAll(workers, folder);
                             break;
-                        case ConsoleKey.D3:
+                        case RunnerMode.Test:
                             PerfAll(workers, folder);
-                            break;
-                        case ConsoleKey.Q:
-                            input = exitCommand;
                             break;
                     }
 
@@ -62,14 +78,7 @@ namespace Xnlab.SharpDups.Runner
                     for (var index = 0; index <= GC.MaxGeneration; index++)
                         Log($"Gen {index} collections: {GC.CollectionCount(index)}", true);
                     Log(string.Empty, true);
-                }
-                else
-                {
-                    Console.WriteLine("Please make sure folder {0} exist", folder);
-                }
-
-                Console.WriteLine();
-            }
+                });
         }
 
         private static void PerfAll(int workers, string folder)
@@ -119,7 +128,10 @@ namespace Xnlab.SharpDups.Runner
                 Log($"\t\t{latestItem.FileName}");
                 var remainingItems = dupItems.Skip(1).ToArray();
                 Log($"\tDup items:{remainingItems.Length}");
-                foreach (var item in remainingItems) Log($"\t\t{item.FileName}");
+                foreach (var item in remainingItems)
+                {
+                    Log($"\t\t{item.FileName}");
+                }
                 Log(string.Empty);
             }
 
