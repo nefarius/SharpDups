@@ -116,10 +116,10 @@ namespace Xnlab.SharpDups.Runner
                 var dupItems = dup.Items.OrderByDescending(f => f.ModifiedTime);
                 var latestItem = dupItems.First();
                 Log("\tLatest one:");
-                Log(string.Format("\t\t{0}", latestItem.FileName));
+                Log($"\t\t{latestItem.FileName}");
                 var remainingItems = dupItems.Skip(1).ToArray();
-                Log(string.Format("\tDup items:{0}", remainingItems.Length));
-                foreach (var item in remainingItems) Log(string.Format("\t\t{0}", item.FileName));
+                Log($"\tDup items:{remainingItems.Length}");
+                foreach (var item in remainingItems) Log($"\t\t{item.FileName}");
                 Log(string.Empty);
             }
 
